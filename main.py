@@ -21,6 +21,7 @@ from aiogram.types import FSInputFile
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 OTREE_LABELS_PATH = os.getenv('OTREE_LABELS_PATH')
 ADMIN_ID = os.getenv('ADMIN_ID')
+OTREE_ROOM_URL=os.getenv('OTREE_ROOM_URL')
 
 redis = Redis(host='localhost')
 
@@ -58,7 +59,7 @@ from pprint import pprint
 # POST = requests.post
 
 # if using Heroku, change this to https://YOURAPP.herokuapp.com
-SERVER_URL = 'http://localhost:8000'
+# SERVER_URL = 'http://localhost:8000'
 # REST_KEY = os.getenv('REST_KEY')
 MESSAGE_TEXT = 'Привет!'\
             '\nТвой друг/знакомый/коллега пригласил тебя поучаствовать в онлайн эксперименте'\
@@ -108,7 +109,7 @@ async def process_start_command(message: Message, state: FSMContext):
             # )
             # print(send_inviter)
             await message.answer(text=MESSAGE_TEXT)
-            await message.answer(text=f'http://localhost:8000/room/behexp?participant_label={part_code}')
+            await message.answer(text=f'{OTREE_ROOM_URL}?participant_label={part_code}')
             user_id = message.from_user.id
             link_for_other = await create_start_link(bot, user_id, encode=True)
             await state.update_data(data=dict(
@@ -134,7 +135,6 @@ async def continue_paricipation(message: Message, state: FSMContext):
     else:
         await message.answer(text="Вы уже зареганы!")
 
-    #await message.answer(text=f'http://localhost:8000/room/behexp?participant_label={args}')
 
 #
 # # Этот хэндлер будет срабатывать на любые сообщения, кроме тех
