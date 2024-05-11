@@ -54,28 +54,28 @@ import requests  # pip3 install requests
 from pprint import pprint
 
 
-GET = requests.get
-POST = requests.post
+# GET = requests.get
+# POST = requests.post
 
 # if using Heroku, change this to https://YOURAPP.herokuapp.com
 SERVER_URL = 'http://localhost:8000'
-REST_KEY = ''  # fill this later
+# REST_KEY = os.getenv('REST_KEY')
 MESSAGE_TEXT = 'Привет!'\
             '\nТвой друг/знакомый/коллега пригласил тебя поучаствовать в онлайн эксперименте'\
                               '\nЭксперимент займёт не более 5 минут. Ты сможешь заработать от 150 до 400 рублей'\
                               '\nТы можешь в любой момент прекратить участие в эксперименте.'\
                               '\nЧтобы принять участие перейди по индивидуальной ссылке'
-def call_api(method, *path_parts, **params) -> dict:
-    path_parts = '/'.join(path_parts)
-    url = f'{SERVER_URL}/api/{path_parts}/'
-    resp = method(url, json=params, headers={'otree-rest-key': REST_KEY})
-    if not resp.ok:
-        msg = (
-            f'Request to "{url}" failed '
-            f'with status code {resp.status_code}: {resp.text}'
-        )
-        raise Exception(msg)
-    return resp.json()
+# def call_api(method, *path_parts, **params) -> dict:
+#     path_parts = '/'.join(path_parts)
+#     url = f'{SERVER_URL}/api/{path_parts}/'
+#     resp = method(url, json=params, headers={'otree-rest-key': REST_KEY})
+#     if not resp.ok:
+#         msg = (
+#             f'Request to "{url}" failed '
+#             f'with status code {resp.status_code}: {resp.text}'
+#         )
+#         raise Exception(msg)
+#     return resp.json()
 
 @dp.message(CommandStart(),~StateFilter(FSMFillForm.participated))
 async def process_start_command(message: Message, state: FSMContext):
@@ -93,22 +93,20 @@ async def process_start_command(message: Message, state: FSMContext):
                 print(a)
                 participants.append(a[1])
         reference = decode_payload(args)
-        print(reference)
-        print(participants)
         if (reference in participants) or (str(message.from_user.id) == str(ADMIN_ID)):
             amount_of_participated = len(participants)
             with open(f'{OTREE_LABELS_PATH}') as f:
                 contents = f.read()
             codes = contents.split(sep="\n")
             part_code = codes[amount_of_participated]
-            send_inviter = call_api(
-                POST,
-                'participant_vars',
-                room_name='behexp',
-                participant_label=part_code,
-                vars=dict(inviter=args),
-            )
-            pprint(send_inviter)
+            # send_inviter = call_api(
+            #     POST,
+            #     'participant_vars',
+            #     room_name='behexp',
+            #     participant_label=part_code,
+            #     vars=dict(inviter=args),
+            # )
+            # print(send_inviter)
             await message.answer(text=MESSAGE_TEXT)
             await message.answer(text=f'http://localhost:8000/room/behexp?participant_label={part_code}')
             user_id = message.from_user.id
@@ -127,9 +125,15 @@ async def process_start_command(message: Message, state: FSMContext):
 
 @dp.message(CommandStart(), StateFilter(FSMFillForm.participated))
 async def continue_paricipation(message: Message, state: FSMContext):
-    data = await state.get_data()
-    print(data)
-    await message.answer(text="Вы уже зареганы!")
+    args = message.text.replace('/start ', '')
+    if args == "return":
+        data = await state.get_data()
+        print(data)
+        await message.answer(text="Поделитесь с другом этой ссылкой")
+        await message.answer(text=data['coded_user_id'])
+    else:
+        await message.answer(text="Вы уже зареганы!")
+
     #await message.answer(text=f'http://localhost:8000/room/behexp?participant_label={args}')
 
 #
