@@ -21,7 +21,7 @@ from aiogram.types import FSInputFile
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 OTREE_LABELS_PATH = os.getenv('OTREE_LABELS_PATH')
 ADMIN_ID = os.getenv('ADMIN_ID')
-OTREE_ROOM_URL=os.getenv('OTREE_ROOM_URL')
+
 
 redis = Redis(host='localhost')
 
@@ -55,28 +55,29 @@ import requests  # pip3 install requests
 from pprint import pprint
 
 
-# GET = requests.get
-# POST = requests.post
+GET = requests.get
+POST = requests.post
 
 # if using Heroku, change this to https://YOURAPP.herokuapp.com
-# SERVER_URL = 'http://localhost:8000'
-# REST_KEY = os.getenv('REST_KEY')
-MESSAGE_TEXT = 'Привет!'\
-            '\nТвой друг/знакомый/коллега пригласил тебя поучаствовать в онлайн эксперименте'\
-                              '\nЭксперимент займёт не более 5 минут. Ты сможешь заработать от 150 до 400 рублей'\
-                              '\nТы можешь в любой момент прекратить участие в эксперименте.'\
-                              '\nЧтобы принять участие перейди по индивидуальной ссылке'
-# def call_api(method, *path_parts, **params) -> dict:
-#     path_parts = '/'.join(path_parts)
-#     url = f'{SERVER_URL}/api/{path_parts}/'
-#     resp = method(url, json=params, headers={'otree-rest-key': REST_KEY})
-#     if not resp.ok:
-#         msg = (
-#             f'Request to "{url}" failed '
-#             f'with status code {resp.status_code}: {resp.text}'
-#         )
-#         raise Exception(msg)
-#     return resp.json()
+SERVER_URL = os.getenv('SERVER_URL')
+ROOM_NAME = os.getenv('ROOM_NAME')
+OTREE_ROOM_URL=f'{SERVER_URL}/room/{ROOM_NAME}'
+REST_KEY = os.getenv('REST_KEY')
+MESSAGE_TEXT = 'Привет\!'\
+            '\nТвой знакомый пригласил тебя поучаствовать в онлайн эксперименте'\
+            '\nЭксперимент займёт не более 5 минут\. Ты сможешь получить от 50 до 250 рублей \(на карту через СБП по номеру телефона\), если ты и два твоих друга пройдут эксперимент\.'\
+            '\nЧтобы принять участие [нажмите здесь]({})\.'
+def call_api(method, *path_parts, **params) -> dict:
+    path_parts = '/'.join(path_parts)
+    url = f'{SERVER_URL}/api/{path_parts}/'
+    resp = method(url, json=params, headers={'otree-rest-key': REST_KEY})
+    if not resp.ok:
+        msg = (
+            f'Request to "{url}" failed '
+            f'with status code {resp.status_code}: {resp.text}'
+        )
+        raise Exception(msg)
+    return resp.json()
 
 @dp.message(CommandStart(),~StateFilter(FSMFillForm.participated))
 async def process_start_command(message: Message, state: FSMContext):
@@ -100,18 +101,23 @@ async def process_start_command(message: Message, state: FSMContext):
                 contents = f.read()
             codes = contents.split(sep="\n")
             part_code = codes[amount_of_participated]
-            # send_inviter = call_api(
-            #     POST,
-            #     'participant_vars',
-            #     room_name='behexp',
-            #     participant_label=part_code,
-            #     vars=dict(inviter=args),
-            # )
-            # print(send_inviter)
-            await message.answer(text=MESSAGE_TEXT)
-            await message.answer(text=f'{OTREE_ROOM_URL}?participant_label={part_code}')
             user_id = message.from_user.id
+            user_name = message.from_user.username
             link_for_other = await create_start_link(bot, user_id, encode=True)
+            print(call_api(
+                POST,
+                'participant_vars',
+                room_name='behexp',
+                participant_label=part_code,
+                vars=dict(inviter=args, inviter_dec=reference,recipient=link_for_other,recipient_dec=user_id, username=user_name),
+            ))
+            await message.answer(text=MESSAGE_TEXT.format(f'{OTREE_ROOM_URL}?participant_label={part_code}'), parse_mode = "MarkdownV2")
+            await message.answer(text='Организатор эксперимента: Афанасьев Кирилл Олегович, '
+                                      'студент 1 курса магистерской программы Прикладная социальная психология, '
+                                      'НИУ ВШЭ\n'
+                                      't.me/kirillafanasev\n'
+                                      'koafanasev@edu.hse.ru'
+                                 )
             await state.update_data(data=dict(
                 otree_code=part_code,
                 referal=reference,
@@ -126,14 +132,10 @@ async def process_start_command(message: Message, state: FSMContext):
 
 @dp.message(CommandStart(), StateFilter(FSMFillForm.participated))
 async def continue_paricipation(message: Message, state: FSMContext):
-    args = message.text.replace('/start ', '')
-    if args == "return":
-        data = await state.get_data()
-        print(data)
-        await message.answer(text="Поделитесь с другом этой ссылкой")
-        await message.answer(text=data['coded_user_id'])
-    else:
-        await message.answer(text="Вы уже зареганы!")
+    data = await state.get_data()
+    await message.answer(text=f"Вы уже зарегистрированы\! Для участия в эксперименте [нажмите здесь]({OTREE_ROOM_URL}?participant_label={data['otree_code']})\.", parse_mode = "MarkdownV2")
+
+
 
 
 #
